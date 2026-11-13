@@ -1,4 +1,5 @@
 import { call } from './api.js';
+import { field, setBadge, timeLabel } from './queue.js';
 
 const $ = (id) => document.getElementById(id);
 const form = $('submit-form');
@@ -6,20 +7,14 @@ const design = $('design');
 const drop = $('dropzone');
 const caption = $('file-caption');
 const originalCaption = caption.innerHTML;
-const trackForm = $('track-form');
-const trackResult = $('track-result');
 const chunkSize = 4 * 1024 * 1024;
 const mb = 1024 * 1024;
-const codePattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 let files = [];
 let draft;
-
-function field(tag, text, className = '') {
-  const node = document.createElement(tag);
-  node.className = className;
-  node.textContent = text;
-  return node;
-}
+let submitting = false;
+let page = 0;
+let filter = '';
+let queueLoad = 0;
 function setError(message) {
   $('submit-error').textContent = message;
   $('submit-error').hidden = !message;
@@ -100,6 +95,7 @@ function progress(bytes, total, message) {
 }
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
+  if (submitting) return;
   setError('');
   const minutes = Number($('hours').value) * 60 + Number($('minutes').value);
   if (!Number.isInteger(minutes) || minutes < 1 || minutes > 10080) {
@@ -111,11 +107,12 @@ form.addEventListener('submit', async (event) => {
     return design.focus();
   }
   const fields = new FormData(form);
-  const details = { submitter: fields.get('submitter'), project: fields.get('project'), minutes, material: fields.get('material'),
+  const details = { submitter: fields.get('submitter'), project: fields.get('project'), minutes, filament_id: fields.get('filament') || null,
     files: files.map(({name, size}) => ({ name, bytes: size })) };
   const signature = JSON.stringify(details);
   if (draft?.signature !== signature) draft = { signature, tracking: crypto.randomUUID(), uploaded: new Set() };
-  const controls = form.querySelectorAll('input, button');
+  const controls = form.querySelectorAll('input, button, select');
+  submitting = true;
   controls.forEach((control) => { control.disabled = true; });
   const total = files.reduce((sum, file) => sum + file.size, 0);
   try {
@@ -139,32 +136,24 @@ form.addEventListener('submit', async (event) => {
       progress(total, total, 'Checking your files…');
       await retry(() => call('finish/' + request.id, { method: 'POST', tracking: draft.tracking }));
     }
-    const url = new URL(location.pathname, location.origin);
-    url.hash = 'track=' + draft.tracking;
-    $('receipt-link').value = url.href;
-    $('open-track').href = url.hash;
     $('receipt-project').textContent = request.project + ' is pending lab review.';
     form.hidden = true;
     $('receipt').hidden = false;
     $('receipt').focus();
+    page = 0;
+    setFilter('');
+    void loadQueue();
   } catch (error) {
     $('upload-status').hidden = true;
     if (error.status === 410) draft = undefined;
+    if (error.status === 409) void loadFilaments();
     setError(error.message);
   } finally {
+    submitting = false;
     controls.forEach((control) => { control.disabled = false; });
   }
 });
 
-$('copy-link').addEventListener('click', async () => {
-  try {
-    await navigator.clipboard.writeText($('receipt-link').value);
-    $('copy-link').textContent = 'Link copied';
-  } catch {
-    $('receipt-link').focus();
-    $('receipt-link').select();
-  }
-});
 $('another').addEventListener('click', () => {
   $('receipt').hidden = true;
   $('upload-status').hidden = true;
@@ -172,46 +161,80 @@ $('another').addEventListener('click', () => {
   files = [];
   draft = undefined;
   renderFiles();
-  $('copy-link').textContent = 'Copy tracking link';
   form.hidden = false;
   form.elements.submitter.focus();
 });
 
-async function lookup() {
-  const raw = $('tracking').value.trim();
-  const code = raw.includes('#track=') ? raw.split('#track=').at(-1) : raw;
-  trackResult.hidden = false;
-  trackResult.className = 'notice';
-  trackResult.textContent = 'Looking up request…';
-  const button = trackForm.querySelector('button');
-  button.disabled = true;
+async function loadFilaments() {
+  const note = $('filament-note');
   try {
-    if (!codePattern.test(code)) throw new Error('Enter the tracking code or link from your submission receipt.');
-    const row = await call('track', { method: 'POST', json: { tracking: code } });
-    const badge = field('span', { pending: 'Pending review', accepted: 'Accepted', rejected: 'Rejected' }[row.status], 'badge');
-    badge.dataset.status = row.status;
-    const hours = Math.floor(row.minutes / 60);
-    const time = [hours && hours + ' hr', (row.minutes % 60) && (row.minutes % 60) + ' min'].filter(Boolean).join(' ');
-    trackResult.className = 'track-card';
-    trackResult.replaceChildren(badge, field('h3', row.project), field('p', [time, row.material].filter(Boolean).join(' · ')));
-    if (row.comment) trackResult.append(field('p', row.comment));
-  } catch (error) {
-    trackResult.className = 'notice error';
-    trackResult.textContent = error.message;
-  } finally {
-    button.disabled = false;
+    const { items } = await call('filaments');
+    const select = form.elements.filament;
+    const previous = select.value;
+    if (!submitting) {
+      select.replaceChildren(new Option('No preference', ''), ...items.map((item) => new Option(item.material + ' · ' + item.color, item.id)));
+      select.value = items.some((item) => item.id === previous) ? previous : '';
+    }
+    $('filament-list').replaceChildren(...items.map((item) => field('li', item.material + ' · ' + item.color)));
+    note.textContent = items.length ? '' : 'No filaments are listed as available yet.';
+    note.hidden = Boolean(items.length);
+  } catch {
+    note.hidden = false;
+    note.textContent = 'Could not load filaments. Use Refresh in the public queue to try again.';
   }
 }
-trackForm.addEventListener('submit', (event) => {
-  event.preventDefault();
-  void lookup();
-});
-function openTrackingLink() {
-  if (!location.hash.startsWith('#track=')) return;
-  $('tracking').value = location.hash.slice(7);
-  $('track').scrollIntoView({ block: 'center' });
-  void lookup();
+function projectCard(row) {
+  const article = field('article', '', 'public-project');
+  const heading = field('div', '', 'project-heading');
+  const badge = field('span', '', 'badge');
+  setBadge(badge, row.status);
+  heading.append(field('h3', row.project), badge);
+  const { total, ready, delivered } = row.progress;
+  const active = row.status === 'in_process' || row.status === 'finished';
+  const progress = active ? ' · ' + ready + ' ready for pickup · ' + delivered + ' of ' + total + ' delivered' : '';
+  article.append(heading, field('p', 'Estimated ' + timeLabel(row.minutes) + progress, 'muted'));
+  if (row.comment) article.append(field('p', row.comment, 'project-comment'));
+  return article;
 }
-window.addEventListener('hashchange', openTrackingLink);
-openTrackingLink();
+function setFilter(value) {
+  filter = value;
+  for (const button of document.querySelectorAll('[data-filter]')) {
+    const active = button.dataset.filter === value;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  }
+}
+async function loadQueue() {
+  const current = ++queueLoad;
+  const note = $('queue-note');
+  note.hidden = false;
+  note.classList.remove('error');
+  note.textContent = 'Loading projects…';
+  $('queue-pages').hidden = true;
+  try {
+    const { items, more } = await call('queue?' + new URLSearchParams({ status: filter, page }));
+    if (current !== queueLoad) return;
+    if (!items.length && page > 0) { page--; return loadQueue(); }
+    $('project-list').replaceChildren(...items.map(projectCard));
+    note.textContent = items.length ? '' : 'No projects to show.';
+    note.hidden = Boolean(items.length);
+    $('queue-pages').hidden = !(page > 0 || more);
+    $('queue-page').textContent = 'Page ' + (page + 1);
+    $('queue-prev').disabled = page === 0;
+    $('queue-next').disabled = !more;
+  } catch (error) {
+    if (current !== queueLoad) return;
+    note.textContent = error.message;
+    note.classList.add('error');
+  }
+}
+for (const button of document.querySelectorAll('[data-filter]')) {
+  button.addEventListener('click', () => { page = 0; setFilter(button.dataset.filter); void loadQueue(); });
+}
+$('queue-prev').addEventListener('click', () => { page--; void loadQueue(); });
+$('queue-next').addEventListener('click', () => { page++; void loadQueue(); });
+$('refresh-queue').addEventListener('click', () => { void loadQueue(); void loadFilaments(); });
+if (location.hash === '#track' || location.hash.startsWith('#track=')) location.replace('#queue');
+void loadQueue();
+void loadFilaments();
 

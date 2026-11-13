@@ -23,16 +23,31 @@
   <section class="panel admin-queue" id="queue" hidden>
     <div class="queue-title"><div><h2>Print requests</h2><p>Pending requests are shown oldest first.</p></div><button type="button" class="text-button" id="sign-out">Sign out</button></div>
     <div class="filters" aria-label="Filter requests">
-      <button class="filter active" data-filter="pending" aria-pressed="true">Pending</button><button class="filter" data-filter="accepted" aria-pressed="false">Accepted</button><button class="filter" data-filter="rejected" aria-pressed="false">Rejected</button><button class="filter" data-filter="" aria-pressed="false">All requests</button>
+      <button class="filter active" data-filter="pending" aria-pressed="true">Pending</button><button class="filter" data-filter="in_process" aria-pressed="false">In process</button><button class="filter" data-filter="finished" aria-pressed="false">Finished</button><button class="filter" data-filter="rejected" aria-pressed="false">Rejected</button><button class="filter" data-filter="" aria-pressed="false">All requests</button>
     </div>
     <div id="queue-note" class="notice" role="status" hidden></div><div id="request-list"></div>
     <div class="pagination" id="pages" hidden><button id="prev" class="button secondary">Previous</button><span id="page-number"></span><button id="next" class="button secondary">Next</button></div>
   </section>
+  <section class="panel admin-queue filament-admin" id="filament-admin" hidden aria-labelledby="manage-filaments">
+    <div class="queue-title"><div><h2 id="manage-filaments">Manage filaments</h2><p>Available filaments appear on the public page and in the submission form.</p></div></div>
+    <form class="filament-form" id="add-filament" method="post">
+      <label>Material<input name="material" maxlength="40" placeholder="e.g. PLA" required></label>
+      <label>Color<input name="color" maxlength="37" placeholder="e.g. Teal" required></label>
+      <button type="submit" class="button primary">Add filament</button>
+    </form>
+    <p id="inventory-note" class="notice" role="status" hidden></p>
+    <div id="inventory"></div>
+  </section>
 </div>
 <template id="request-template"><article class="request">
   <details><summary><div><h3 class="request-project"></h3><p class="request-meta"></p></div><span class="badge"></span><span class="chevron" aria-hidden="true">⌄</span></summary>
-    <div class="request-body"><p class="request-material"></p><div class="downloads" aria-label="STEP files"></div><p class="download-message" role="status" hidden></p>
-      <form class="review-form"><label>Comment to the requester<textarea name="comment" maxlength="2000" rows="3" placeholder="Share feedback or explain a decision"></textarea></label><div class="review-actions"><button class="button secondary" data-action="comment" type="submit">Save comment</button><button class="button secondary reject" data-action="rejected" type="submit">Reject</button><button class="button primary" data-action="accepted" type="submit">Accept</button></div><p class="review-message" role="status" hidden></p></form>
+    <div class="request-body"><p class="request-material"></p>
+      <form class="review-form" method="post">
+        <div class="piece-list" aria-label="STEP files"></div><p class="download-message" role="status" hidden></p>
+        <div class="review-actions project-actions"></div>
+        <label>Public comment<textarea name="comment" maxlength="2000" rows="3" placeholder="Share feedback, a decision, or pickup instructions"></textarea></label>
+        <div class="review-actions decision-actions"></div><p class="review-message" role="status" hidden></p>
+      </form>
     </div>
   </details>
 </article></template>
