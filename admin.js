@@ -1,5 +1,5 @@
 import { call, ApiError } from './api.js';
-import { accessToken, hasSession, signIn, signOut } from './auth.js';
+import { accessToken, signIn, signOut } from './auth.js';
 import { field, projectStatuses, setBadge, timeLabel } from './queue.js';
 
 const $ = (id) => document.getElementById(id);
@@ -10,7 +10,15 @@ let page = 0;
 let loadId = 0;
 
 async function api(path, options) {
-  return call('admin/' + path, { ...options, accessToken: await accessToken() });
+  try {
+    return await call('admin/' + path, { ...options, accessToken: await accessToken() });
+  } catch (error) {
+    if ((error.status === 401 || error.status === 403) && !$('queue').hidden) {
+      showSignIn('Your admin session ended. Sign in again.');
+      void signOut().catch(() => {});
+    }
+    throw error;
+  }
 }
 async function downloadFile(id, index, button, message) {
   button.disabled = true;
@@ -21,7 +29,7 @@ async function downloadFile(id, index, button, message) {
     const parts = [];
     for (const [number, url] of file.parts.entries()) {
       message.textContent = 'Downloading part ' + (number + 1) + ' of ' + file.parts.length + '…';
-      const response = await fetch(url);
+      const response = await fetch(url, { credentials: 'omit', redirect: 'error', cache: 'no-store' });
       if (!response.ok) throw new Error('Download interrupted. Try again.');
       parts.push(await response.blob());
     }
@@ -262,8 +270,7 @@ login.addEventListener('submit', async (event) => {
     button.disabled = false;
   }
 });
-$('sign-out').addEventListener('click', async () => {
-  await signOut().catch(() => {});
+function showSignIn(message = '') {
   loadId++;
   inventoryLoad++;
   list.replaceChildren();
@@ -271,12 +278,17 @@ $('sign-out').addEventListener('click', async () => {
   $('queue').hidden = true;
   $('filament-admin').hidden = true;
   $('gate').hidden = false;
+  loginMessage(message);
   login.elements.email.focus();
-});
-if (hasSession()) {
-  void openQueue().catch(async (error) => {
-    if (error.status === 403) await signOut().catch(() => {});
-    if (error.status !== 401) loginMessage(error.message);
-  });
 }
+$('sign-out').addEventListener('click', () => {
+  showSignIn();
+  void signOut().catch(() => {});
+});
+window.addEventListener('pageshow', (event) => {
+  if (event.persisted) {
+    showSignIn();
+    void signOut().catch(() => {});
+  }
+});
 

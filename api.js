@@ -18,7 +18,9 @@ export async function call(path, { method = 'GET', json, body, accessToken, trac
   if (tracking) headers['X-Tracking-Code'] = tracking;
   let response;
   try {
-    response = await fetch(projectUrl + '/functions/v1/print-queue/' + path, { method, body, headers });
+    response = await fetch(projectUrl + '/functions/v1/print-queue/' + path, {
+      method, body, headers, credentials: 'omit', redirect: 'error', cache: 'no-store',
+    });
   } catch {
     throw new ApiError(0, 'The connection was interrupted. Try again.');
   }
