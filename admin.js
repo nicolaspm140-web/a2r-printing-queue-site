@@ -52,13 +52,6 @@ function setNote(message) {
   note.textContent = message;
   note.hidden = !message;
 }
-function actionButton(label, action, style = 'secondary', piece) {
-  const button = field('button', label, 'button ' + style);
-  button.type = 'submit';
-  button.dataset.action = action;
-  if (piece !== undefined) button.dataset.piece = String(piece);
-  return button;
-}
 function renderRequest(row) {
   const fragment = $('request-template').content.cloneNode(true);
   const get = (selector) => fragment.querySelector(selector);
@@ -71,13 +64,24 @@ function renderRequest(row) {
   const projectActions = get('.project-actions');
   const decisionActions = get('.decision-actions');
   const downloadMessage = get('.download-message');
+  const review = get('.review-form');
+  const message = get('.review-message');
+  review.elements.comment.value = row.comment;
+  function actionButton(label, action, style = 'secondary', piece) {
+    const button = field('button', label, 'button ' + style);
+    button.type = 'button';
+    button.addEventListener('click', () => void saveReview(action, piece));
+    return button;
+  }
   function renderActions() {
     setBadge(badge, row.status);
     pieces.replaceChildren();
     projectActions.replaceChildren();
-    decisionActions.replaceChildren(actionButton('Save comment', 'comment'));
+    const commentButton = field('button', 'Save comment', 'button secondary');
+    commentButton.type = 'submit';
+    decisionActions.replaceChildren(commentButton);
     const working = row.status === 'in_process';
-    const showState = working || row.status === 'finished';
+    const showState = working || row.status === 'finished' || Object.keys(row.piece_states).length > 0;
     for (const [index, file] of row.files.entries()) {
       const piece = field('div', '', 'piece-row');
       const state = row.piece_states[index] || 'waiting';
@@ -107,27 +111,20 @@ function renderRequest(row) {
       if (row.files.some((_, index) => !row.piece_states[index])) projectActions.append(actionButton('Mark all printed', 'ready_all'));
       else projectActions.append(actionButton('Deliver whole project', 'deliver_all', 'primary'));
     }
-    if (row.status === 'pending') decisionActions.append(actionButton('Reject', 'reject', 'secondary reject'));
+    if (row.status !== 'rejected') decisionActions.append(actionButton('Reject', 'reject', 'secondary reject'));
     if (row.status === 'pending' || row.status === 'rejected') decisionActions.append(actionButton('Accept', 'accept', 'primary'));
   }
-  renderActions();
-  const review = get('.review-form');
-  review.elements.comment.value = row.comment;
-  const message = get('.review-message');
-  review.addEventListener('submit', async (event) => {
-    event.preventDefault();
+  async function saveReview(action, piece) {
     if (review.getAttribute('aria-busy') === 'true') return;
     review.setAttribute('aria-busy', 'true');
-    const action = event.submitter?.dataset.action || 'comment';
-    const buttons = review.querySelectorAll('button[type=submit]');
+    const buttons = review.querySelectorAll('button');
     buttons.forEach((button) => { button.disabled = true; });
     message.hidden = false;
     message.textContent = 'Saving…';
     try {
       const updated = await api('queue/' + row.id, {
         method: 'PATCH',
-        json: { action, piece: event.submitter?.dataset.piece === undefined ? undefined : Number(event.submitter.dataset.piece),
-          comment: review.elements.comment.value, revision: row.revision },
+        json: { action, piece, comment: review.elements.comment.value, revision: row.revision },
       });
       Object.assign(row, updated);
       renderActions();
@@ -143,6 +140,11 @@ function renderRequest(row) {
       review.removeAttribute('aria-busy');
       buttons.forEach((button) => { button.disabled = false; });
     }
+  }
+  renderActions();
+  review.addEventListener('submit', (event) => {
+    event.preventDefault();
+    void saveReview('comment');
   });
   return fragment;
 }
