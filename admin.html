@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="./styles.css?v=reject-request">
+<link rel="stylesheet" href="./styles.css?v=review-priority">
 </head>
 <body><header class="header"><div class="wrap nav">
   <a class="brand" href="./" aria-label="A2R Printing Queue home"><img src="./logo.png" width="58" height="40" alt="A2R Group"><span class="brand-divider"></span><span>Printing Queue</span></a>
@@ -23,7 +23,7 @@
 <div class="wrap admin-layout">
   <section class="panel admin-gate" id="gate"><div class="section-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4m-4 4v2"/></svg></div><h2>Administrator sign-in</h2><p>Use the email and password issued for the A2R queue.</p><form id="login-form" method="post" class="login-form"><label>Email<input name="email" type="email" autocomplete="username" required></label><label>Password<input name="password" type="password" autocomplete="current-password" required></label><button type="submit" class="button primary">Sign in</button><p id="login-message" class="notice error" role="alert" hidden></p></form></section>
   <section class="panel admin-queue" id="queue" hidden>
-    <div class="queue-title"><div><h2>Print requests</h2><p>Pending requests are shown oldest first.</p></div><button type="button" class="text-button" id="sign-out">Sign out</button></div>
+    <div class="queue-title"><div><h2>Print requests</h2><p>Urgent and high-priority requests appear first.</p></div><button type="button" class="text-button" id="sign-out">Sign out</button></div>
     <div class="filters" aria-label="Filter requests">
       <button class="filter active" data-filter="pending" aria-pressed="true">Pending</button><button class="filter" data-filter="in_process" aria-pressed="false">In process</button><button class="filter" data-filter="finished" aria-pressed="false">Finished</button><button class="filter" data-filter="rejected" aria-pressed="false">Rejected</button><button class="filter" data-filter="" aria-pressed="false">All requests</button>
     </div>
@@ -35,6 +35,8 @@
     <form class="filament-form" id="add-filament" method="post">
       <label>Material<input name="material" maxlength="40" placeholder="e.g. PLA" required></label>
       <label>Color<input name="color" maxlength="37" placeholder="e.g. Teal" required></label>
+      <label>Brand<input name="brand" maxlength="80" placeholder="Optional"></label>
+      <label>Remaining weight (g)<input name="weight_grams" type="number" min="0" max="2147483647" step="1" placeholder="Optional"></label>
       <button type="submit" class="button primary">Add filament</button>
     </form>
     <p id="inventory-note" class="notice" role="status" hidden></p>
@@ -42,9 +44,12 @@
   </section>
 </div>
 <template id="request-template"><article class="request">
-  <details><summary><div><h3 class="request-project"></h3><p class="request-meta"></p></div><span class="badge"></span><span class="chevron" aria-hidden="true">⌄</span></summary>
+  <details><summary><div><h3 class="request-project"></h3><p class="request-meta"></p></div><div class="project-tags"><span class="request-priority badge"></span><span class="request-status badge"></span></div><span class="chevron" aria-hidden="true">⌄</span></summary>
     <div class="request-body"><p class="request-material"></p>
+      <section class="review-context"><h4>Print requirements</h4><p class="request-submission-note"></p></section>
+      <section class="review-context"><h4>Decision history</h4><p class="history-empty">No reviewer names recorded yet.</p><ul class="decision-history"></ul></section>
       <form class="review-form" method="post">
+        <div class="priority-control"><label>Queue priority<select name="priority"></select></label><button type="button" class="button secondary save-priority">Save priority</button></div>
         <div class="piece-list" aria-label="Design files"></div><p class="download-message" role="status" hidden></p>
         <div class="review-actions project-actions"></div>
         <label>Public comment<textarea name="comment" maxlength="2000" rows="3" placeholder="Share feedback, a decision, or pickup instructions"></textarea></label>
@@ -52,7 +57,16 @@
       </form>
     </div>
   </details>
-  <button type="button" class="button secondary reject request-reject" hidden>Reject entire request</button>
+  <button type="button" class="button secondary request-decision">Reject entire request</button>
   <p class="review-message" role="status" hidden></p>
+  <dialog class="review-dialog">
+    <form class="reviewer-form" method="post">
+      <h3 class="decision-title"></h3>
+      <p class="decision-project muted"></p>
+      <label>Your name<input name="reviewer" maxlength="100" placeholder="Enter the reviewing admin’s name" required autofocus></label>
+      <p class="decision-error notice error" role="alert" hidden></p>
+      <div class="review-actions"><button class="button secondary cancel-decision" type="button">Cancel</button><button class="button primary confirm-decision" type="submit"></button></div>
+    </form>
+  </dialog>
 </article></template>
-</main><footer class="footer"><div class="wrap footer-row"><a class="brand footer-brand" href="./"><img src="./logo.png" width="46" height="32" alt="A2R Group"><span>A2R Printing Queue</span></a><span>Autonomous and Assistive Robotics Research Group</span></div></footer><script src="./admin.js?v=reject-request" type="module"></script></body></html>
+</main><footer class="footer"><div class="wrap footer-row"><a class="brand footer-brand" href="./"><img src="./logo.png" width="46" height="32" alt="A2R Group"><span>A2R Printing Queue</span></a><span>Autonomous and Assistive Robotics Research Group</span></div></footer><script src="./admin.js?v=review-priority" type="module"></script></body></html>

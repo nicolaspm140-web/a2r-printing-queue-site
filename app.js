@@ -1,5 +1,5 @@
 import { call } from './api.js';
-import { field, setBadge, timeLabel } from './queue.js';
+import { field, priorityLabels, setBadge, timeLabel } from './queue.js?v=review-priority';
 
 const $ = (id) => document.getElementById(id);
 const form = $('submit-form');
@@ -107,11 +107,17 @@ form.addEventListener('submit', async (event) => {
     return design.focus();
   }
   const fields = new FormData(form);
+  const submissionNote = fields.get('submission_note').trim();
+  if (!submissionNote) {
+    setError('Describe your print requirements before submitting.');
+    return form.elements.submission_note.focus();
+  }
   const details = { submitter: fields.get('submitter'), project: fields.get('project'), minutes, filament_id: fields.get('filament') || null,
+    submission_note: submissionNote,
     files: files.map(({name, size}) => ({ name, bytes: size })) };
   const signature = JSON.stringify(details);
   if (draft?.signature !== signature) draft = { signature, tracking: crypto.randomUUID(), uploaded: new Set() };
-  const controls = form.querySelectorAll('input, button, select');
+  const controls = form.querySelectorAll('input, button, select, textarea');
   submitting = true;
   controls.forEach((control) => { control.disabled = true; });
   const total = files.reduce((sum, file) => sum + file.size, 0);
@@ -188,7 +194,9 @@ function projectCard(row) {
   const heading = field('div', '', 'project-heading');
   const badge = field('span', '', 'badge');
   setBadge(badge, row.status);
-  heading.append(field('h3', row.project), badge);
+  const tags = field('div', '', 'project-tags');
+  tags.append(field('span', priorityLabels[row.priority ?? 0], 'badge priority-' + (row.priority ?? 0)), badge);
+  heading.append(field('h3', row.project), tags);
   const { total, ready, delivered } = row.progress;
   const active = row.status === 'in_process' || row.status === 'finished';
   const progress = active ? ' · ' + ready + ' ready for pickup · ' + delivered + ' of ' + total + ' delivered' : '';

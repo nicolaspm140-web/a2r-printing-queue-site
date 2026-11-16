@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="./styles.css">
+<link rel="stylesheet" href="./styles.css?v=review-priority">
 </head>
 <body><header class="header"><div class="wrap nav">
   <a class="brand" href="./" aria-label="A2R Printing Queue home"><img src="./logo.png" width="58" height="40" alt="A2R Group"><span class="brand-divider"></span><span>Printing Queue</span></a>
@@ -41,6 +41,7 @@
           <fieldset class="time-field"><legend>Estimated print time <span class="required">*</span></legend><div class="time-inputs"><div class="unit"><input id="hours" type="number" min="0" max="168" inputmode="numeric" placeholder="0" aria-label="Hours"><span>hr</span></div><div class="unit"><input id="minutes" type="number" min="0" max="59" inputmode="numeric" placeholder="0" aria-label="Minutes"><span>min</span></div></div></fieldset>
           <label>Filament <span class="optional">Optional</span><select name="filament"><option value="">No preference</option></select></label>
         </div>
+        <label class="submission-note">Print requirements <span class="required">*</span><textarea name="submission_note" rows="3" maxlength="1000" placeholder="Describe what to print and any requirements for size, fit, finish, or pickup." required></textarea></label>
         <div class="file-field"><p class="label" id="file-label">3D design files <span class="required">*</span></p>
           <div id="dropzone" class="dropzone">
             <input type="file" name="file" id="design" accept=".step,.stp,.stl,.3mf" multiple aria-labelledby="file-label" aria-describedby="file-help format-guidance">
@@ -68,11 +69,11 @@
     </aside>
   </div>
   <section class="wrap panel public-queue" id="queue" aria-labelledby="queue-title">
-    <div class="queue-title"><div><h2 id="queue-title">Public print queue</h2><p>Estimated print time, piece progress, and feedback from the lab.</p></div><button id="refresh-queue" type="button" class="button secondary">Refresh</button></div>
+    <div class="queue-title"><div><h2 id="queue-title">Public print queue</h2><p>Urgent and high-priority requests appear first.</p></div><button id="refresh-queue" type="button" class="button secondary">Refresh</button></div>
     <div class="filters" aria-label="Filter projects">
       <button type="button" class="filter active" data-filter="" aria-pressed="true">All projects</button><button type="button" class="filter" data-filter="pending" aria-pressed="false">Pending</button><button type="button" class="filter" data-filter="in_process" aria-pressed="false">In process</button><button type="button" class="filter" data-filter="finished" aria-pressed="false">Finished</button><button type="button" class="filter" data-filter="rejected" aria-pressed="false">Rejected</button>
     </div>
     <p id="queue-note" class="notice" role="status">Loading projects…</p><div id="project-list"></div>
     <div id="queue-pages" class="pagination" hidden><button type="button" class="button secondary" id="queue-prev">Previous</button><span id="queue-page"></span><button type="button" class="button secondary" id="queue-next">Next</button></div>
   </section>
-</main><footer class="footer"><div class="wrap footer-row"><a class="brand footer-brand" href="./"><img src="./logo.png" width="46" height="32" alt="A2R Group"><span>A2R Printing Queue</span></a><span>Autonomous and Assistive Robotics Research Group</span></div></footer><script src="./app.js" type="module"></script></body></html>
+</main><footer class="footer"><div class="wrap footer-row"><a class="brand footer-brand" href="./"><img src="./logo.png" width="46" height="32" alt="A2R Group"><span>A2R Printing Queue</span></a><span>Autonomous and Assistive Robotics Research Group</span></div></footer><script src="./app.js?v=review-priority" type="module"></script></body></html>

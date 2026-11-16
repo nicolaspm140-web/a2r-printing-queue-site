@@ -1,6 +1,6 @@
 import { call, ApiError } from './api.js';
 import { accessToken, signIn, signOut } from './auth.js';
-import { field, projectStatuses, setBadge, timeLabel } from './queue.js';
+import { field, priorityLabels, projectStatuses, setBadge, timeLabel } from './queue.js?v=review-priority';
 
 const $ = (id) => document.getElementById(id);
 const list = $('request-list');
@@ -56,21 +56,54 @@ function renderRequest(row) {
   const fragment = $('request-template').content.cloneNode(true);
   const get = (selector) => fragment.querySelector(selector);
   const requestCard = get('.request');
-  const rejectButton = get('.request-reject');
-  rejectButton.setAttribute('aria-label', 'Reject entire request for ' + row.project);
-  rejectButton.addEventListener('click', () => void saveReview('reject'));
-  const date = new Date(row.submitted_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  const decisionButton = get('.request-decision');
+  const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  const date = dateFormat.format(new Date(row.submitted_at));
   get('.request-project').textContent = row.project;
   get('.request-meta').textContent = [row.submitter, timeLabel(row.minutes), date].join(' · ');
   get('.request-material').textContent = row.material ? 'Filament: ' + row.material : 'Filament: No preference';
-  const badge = get('.badge');
+  get('.request-submission-note').textContent = row.submission_note || 'No print requirements were recorded.';
+  const badge = get('.request-status');
+  const priorityBadge = get('.request-priority');
   const pieces = get('.piece-list');
   const projectActions = get('.project-actions');
   const decisionActions = get('.decision-actions');
   const downloadMessage = get('.download-message');
   const review = get('.review-form');
   const message = get('.review-message');
+  const prioritySelect = review.elements.priority;
+  prioritySelect.append(...priorityLabels.map((label, value) => new Option(label, String(value))));
   review.elements.comment.value = row.comment;
+  get('.save-priority').addEventListener('click', () => void saveReview('priority'));
+  const dialog = get('.review-dialog');
+  const reviewerForm = get('.reviewer-form');
+  const decisionError = get('.decision-error');
+  let decision;
+  function askReviewer(action, label) {
+    decision = action;
+    dialog.setAttribute('aria-label', label);
+    get('.decision-title').textContent = label;
+    get('.decision-project').textContent = row.project;
+    get('.confirm-decision').textContent = label;
+    reviewerForm.reset();
+    decisionError.hidden = true;
+    dialog.showModal();
+  }
+  get('.cancel-decision').addEventListener('click', () => dialog.close());
+  reviewerForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const name = reviewerForm.elements.reviewer.value.trim();
+    if (!name) {
+      decisionError.textContent = 'Enter the name of the admin making this decision.';
+      decisionError.hidden = false;
+      reviewerForm.elements.reviewer.focus();
+      return;
+    }
+    decisionError.hidden = true;
+    void saveReview(decision, undefined, name);
+  });
+  decisionButton.addEventListener('click', () =>
+    askReviewer(row.status === 'rejected' ? 'accept' : 'reject', decisionButton.textContent));
   function actionButton(label, action, style = 'secondary', piece) {
     const button = field('button', label, 'button ' + style);
     button.type = 'button';
@@ -79,8 +112,18 @@ function renderRequest(row) {
   }
   function renderActions() {
     setBadge(badge, row.status);
-    rejectButton.hidden = row.status === 'rejected';
-    requestCard.classList.toggle('can-reject', !rejectButton.hidden);
+    const priority = row.priority ?? 0;
+    priorityBadge.className = 'request-priority badge priority-' + priority;
+    priorityBadge.textContent = priorityLabels[priority];
+    prioritySelect.value = String(priority);
+    const rejected = row.status === 'rejected';
+    decisionButton.textContent = rejected ? 'Accept rejected request' : 'Reject entire request';
+    decisionButton.className = 'button request-decision ' + (rejected ? 'primary' : 'secondary reject');
+    decisionButton.setAttribute('aria-label', decisionButton.textContent + ' for ' + row.project);
+    const history = row.decision_history ?? [];
+    get('.history-empty').hidden = history.length > 0;
+    get('.decision-history').replaceChildren(...history.slice().reverse().map((entry) => field('li',
+      (entry.action === 'accept' ? 'Accepted by ' : 'Rejected by ') + entry.reviewer + ' · ' + dateFormat.format(new Date(entry.at)))));
     pieces.replaceChildren();
     projectActions.replaceChildren();
     const commentButton = field('button', 'Save comment', 'button secondary');
@@ -117,9 +160,14 @@ function renderRequest(row) {
       if (row.files.some((_, index) => !row.piece_states[index])) projectActions.append(actionButton('Mark all printed', 'ready_all'));
       else projectActions.append(actionButton('Deliver whole project', 'deliver_all', 'primary'));
     }
-    if (row.status === 'pending' || row.status === 'rejected') decisionActions.append(actionButton('Accept', 'accept', 'primary'));
+    if (row.status === 'pending') {
+      const accept = field('button', 'Accept request', 'button primary');
+      accept.type = 'button';
+      accept.addEventListener('click', () => askReviewer('accept', accept.textContent));
+      decisionActions.append(accept);
+    }
   }
-  async function saveReview(action, piece) {
+  async function saveReview(action, piece, reviewer) {
     if (review.getAttribute('aria-busy') === 'true') return;
     review.setAttribute('aria-busy', 'true');
     const buttons = requestCard.querySelectorAll('button');
@@ -129,16 +177,25 @@ function renderRequest(row) {
     try {
       const updated = await api('queue/' + row.id, {
         method: 'PATCH',
-        json: { action, piece, comment: review.elements.comment.value, revision: row.revision },
+        json: { action, piece, reviewer, priority: Number(prioritySelect.value), comment: review.elements.comment.value, revision: row.revision },
       });
       Object.assign(row, updated);
+      if (reviewer && dialog.open) dialog.close();
       renderActions();
-      message.textContent = { comment: 'Comment saved.', reject: 'Entire request rejected.' }[action] || 'Project updated.';
+      message.textContent = { comment: 'Comment saved.', reject: 'Entire request rejected.', accept: 'Request accepted.', priority: 'Priority saved.' }[action] || 'Project updated.';
       if (filter && filter !== row.status) {
         await loadQueue(message.textContent);
       }
+      if (action === 'priority') {
+        page = 0;
+        await loadQueue(message.textContent, { id: row.id, comment: review.elements.comment.value });
+      }
     } catch (failure) {
       message.textContent = failure.message;
+      if (reviewer && dialog.open) {
+        decisionError.textContent = failure.message;
+        decisionError.hidden = false;
+      }
     } finally {
       review.removeAttribute('aria-busy');
       buttons.forEach((button) => { button.disabled = false; });
@@ -151,7 +208,7 @@ function renderRequest(row) {
   });
   return fragment;
 }
-async function loadQueue(resultMessage = '') {
+async function loadQueue(resultMessage = '', editedRequest) {
   const current = ++loadId;
   list.replaceChildren();
   $('pages').hidden = true;
@@ -163,7 +220,14 @@ async function loadQueue(resultMessage = '') {
       page--;
       return loadQueue(resultMessage);
     }
-    result.items.forEach((row) => list.append(renderRequest(row)));
+    result.items.forEach((row) => {
+      const card = renderRequest(row);
+      if (row.id === editedRequest?.id) {
+        card.querySelector('details').open = true;
+        card.querySelector('.review-form').elements.comment.value = editedRequest.comment;
+      }
+      list.append(card);
+    });
     const emptyMessage = filter ? 'No requests with status “' + projectStatuses[filter] + '”.' : 'No print requests yet.';
     setNote(result.items.length ? resultMessage : [resultMessage, emptyMessage].filter(Boolean).join(' '));
     $('pages').hidden = !(page > 0 || result.more);
@@ -200,12 +264,14 @@ async function saveFilament(event, existing) {
   event.preventDefault();
   const form = event.currentTarget;
   const button = form.querySelector('button');
-  const { material, color, available } = form.elements;
+  const { material, color, brand, weight_grams, available } = form.elements;
   button.disabled = true;
   try {
     await api(existing ? 'filaments/' + existing.id : 'filaments', {
       method: existing ? 'PATCH' : 'POST',
-      json: { material: material.value, color: color.value, available: available?.checked ?? true, revision: existing?.revision },
+      json: { material: material.value, color: color.value, brand: brand.value,
+        weight_grams: weight_grams.value === '' ? null : weight_grams.valueAsNumber,
+        available: available?.checked ?? true, revision: existing?.revision },
     });
     if (!existing) form.reset();
     await loadInventory('Filament saved.');
@@ -219,10 +285,13 @@ async function saveFilament(event, existing) {
 function filamentEditor(item) {
   const form = field('form', '', 'filament-form filament-row');
   form.method = 'post';
-  for (const [name, label, maxLength] of [['material', 'Material', 40], ['color', 'Color', 37]]) {
+  for (const [name, label, maxLength] of [['material', 'Material', 40], ['color', 'Color', 37], ['brand', 'Brand', 80],
+    ['weight_grams', 'Remaining weight (g)', null]]) {
     const group = field('label', label);
     const input = field('input', '');
-    Object.assign(input, { name, maxLength, required: true, value: item[name] });
+    Object.assign(input, { name, required: name === 'material' || name === 'color', value: item[name] ?? '' });
+    if (maxLength === null) Object.assign(input, { type: 'number', min: '0', max: '2147483647', step: '1' });
+    else input.maxLength = maxLength;
     group.append(input);
     form.append(group);
   }
