@@ -40,15 +40,15 @@ function renderFiles() {
   }
   list.hidden = !files.length;
   caption.classList.toggle('selected', Boolean(files.length));
-  if (files.length) caption.textContent = 'Add more STEP files';
+  if (files.length) caption.textContent = 'Add more design files';
   else caption.innerHTML = originalCaption;
 }
 function selectFiles(next) {
   setError('');
   const unique = new Map(files.map((file) => [[file.name, file.size, file.lastModified].join('\0'), file]));
   for (const file of next) {
-    if (!/\.(step|stp)$/i.test(file.name)) {
-      setError(file.name + ' must be a .STEP or .STP file. STL and 3MF files are rejected.');
+    if (!/\.(step|stp|stl|3mf)$/i.test(file.name)) {
+      setError(file.name + ' must be a STEP, STP, STL, or 3MF file.');
       continue;
     }
     if (!file.size || file.size > 150 * mb || file.name.length > 180) {
@@ -103,7 +103,7 @@ form.addEventListener('submit', async (event) => {
     return $('hours').focus();
   }
   if (!files.length) {
-    setError('Choose at least one STEP file to submit.');
+    setError('Choose at least one design file to submit.');
     return design.focus();
   }
   const fields = new FormData(form);

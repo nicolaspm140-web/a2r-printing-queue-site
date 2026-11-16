@@ -19,7 +19,7 @@
   <nav aria-label="Main navigation"><a class="nav-link" href="./">Submit a print</a>
   <a class="nav-admin current" href="./admin.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4m-4 4v2"/></svg> Admin<span class="admin-word"> panel</span></a></nav>
 </div></header><main>
-<section class="hero admin-hero"><div class="wrap hero-wrap"><div class="hero-image"></div><div class="hero-content"><p class="eyebrow"><span class="lab-dot"></span> A2R LAB · ADMIN PANEL</p><h1>Review queue<span>.</span></h1><p class="hero-copy">Review STEP files, share feedback, and decide which requests to accept.</p></div></div></section>
+<section class="hero admin-hero"><div class="wrap hero-wrap"><div class="hero-image"></div><div class="hero-content"><p class="eyebrow"><span class="lab-dot"></span> A2R LAB · ADMIN PANEL</p><h1>Review queue<span>.</span></h1><p class="hero-copy">Review design files, share feedback, and decide which requests to accept.</p></div></div></section>
 <div class="wrap admin-layout">
   <section class="panel admin-gate" id="gate"><div class="section-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4m-4 4v2"/></svg></div><h2>Administrator sign-in</h2><p>Use the email and password issued for the A2R queue.</p><form id="login-form" method="post" class="login-form"><label>Email<input name="email" type="email" autocomplete="username" required></label><label>Password<input name="password" type="password" autocomplete="current-password" required></label><button type="submit" class="button primary">Sign in</button><p id="login-message" class="notice error" role="alert" hidden></p></form></section>
   <section class="panel admin-queue" id="queue" hidden>
@@ -45,7 +45,7 @@
   <details><summary><div><h3 class="request-project"></h3><p class="request-meta"></p></div><span class="badge"></span><span class="chevron" aria-hidden="true">⌄</span></summary>
     <div class="request-body"><p class="request-material"></p>
       <form class="review-form" method="post">
-        <div class="piece-list" aria-label="STEP files"></div><p class="download-message" role="status" hidden></p>
+        <div class="piece-list" aria-label="Design files"></div><p class="download-message" role="status" hidden></p>
         <div class="review-actions project-actions"></div>
         <label>Public comment<textarea name="comment" maxlength="2000" rows="3" placeholder="Share feedback, a decision, or pickup instructions"></textarea></label>
         <div class="review-actions decision-actions"></div><p class="review-message" role="status" hidden></p>
