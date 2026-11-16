@@ -54,8 +54,8 @@ function setNote(message) {
 }
 function renderRequest(row) {
   const fragment = $('request-template').content.cloneNode(true);
-  const get = (selector) => fragment.querySelector(selector);
-  const requestCard = get('.request');
+  const requestCard = fragment.querySelector('.request');
+  const get = (selector) => requestCard.querySelector(selector);
   const decisionButton = get('.request-decision');
   const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
   const date = dateFormat.format(new Date(row.submitted_at));
