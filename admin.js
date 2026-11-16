@@ -55,6 +55,10 @@ function setNote(message) {
 function renderRequest(row) {
   const fragment = $('request-template').content.cloneNode(true);
   const get = (selector) => fragment.querySelector(selector);
+  const requestCard = get('.request');
+  const rejectButton = get('.request-reject');
+  rejectButton.setAttribute('aria-label', 'Reject entire request for ' + row.project);
+  rejectButton.addEventListener('click', () => void saveReview('reject'));
   const date = new Date(row.submitted_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
   get('.request-project').textContent = row.project;
   get('.request-meta').textContent = [row.submitter, timeLabel(row.minutes), date].join(' · ');
@@ -75,6 +79,8 @@ function renderRequest(row) {
   }
   function renderActions() {
     setBadge(badge, row.status);
+    rejectButton.hidden = row.status === 'rejected';
+    requestCard.classList.toggle('can-reject', !rejectButton.hidden);
     pieces.replaceChildren();
     projectActions.replaceChildren();
     const commentButton = field('button', 'Save comment', 'button secondary');
@@ -111,13 +117,12 @@ function renderRequest(row) {
       if (row.files.some((_, index) => !row.piece_states[index])) projectActions.append(actionButton('Mark all printed', 'ready_all'));
       else projectActions.append(actionButton('Deliver whole project', 'deliver_all', 'primary'));
     }
-    if (row.status !== 'rejected') decisionActions.append(actionButton('Reject', 'reject', 'secondary reject'));
     if (row.status === 'pending' || row.status === 'rejected') decisionActions.append(actionButton('Accept', 'accept', 'primary'));
   }
   async function saveReview(action, piece) {
     if (review.getAttribute('aria-busy') === 'true') return;
     review.setAttribute('aria-busy', 'true');
-    const buttons = review.querySelectorAll('button');
+    const buttons = requestCard.querySelectorAll('button');
     buttons.forEach((button) => { button.disabled = true; });
     message.hidden = false;
     message.textContent = 'Saving…';
@@ -128,11 +133,9 @@ function renderRequest(row) {
       });
       Object.assign(row, updated);
       renderActions();
-      message.textContent = action === 'comment' ? 'Comment saved.' : 'Project updated.';
+      message.textContent = { comment: 'Comment saved.', reject: 'Entire request rejected.' }[action] || 'Project updated.';
       if (filter && filter !== row.status) {
-        const resultMessage = message.textContent;
-        await loadQueue();
-        if (note.hidden) setNote(resultMessage);
+        await loadQueue(message.textContent);
       }
     } catch (failure) {
       message.textContent = failure.message;
@@ -148,7 +151,7 @@ function renderRequest(row) {
   });
   return fragment;
 }
-async function loadQueue() {
+async function loadQueue(resultMessage = '') {
   const current = ++loadId;
   list.replaceChildren();
   $('pages').hidden = true;
@@ -158,10 +161,11 @@ async function loadQueue() {
     if (current !== loadId) return;
     if (!result.items.length && page > 0) {
       page--;
-      return loadQueue();
+      return loadQueue(resultMessage);
     }
     result.items.forEach((row) => list.append(renderRequest(row)));
-    setNote(result.items.length ? '' : (filter ? 'No requests with status “' + projectStatuses[filter] + '”.' : 'No print requests yet.'));
+    const emptyMessage = filter ? 'No requests with status “' + projectStatuses[filter] + '”.' : 'No print requests yet.';
+    setNote(result.items.length ? resultMessage : [resultMessage, emptyMessage].filter(Boolean).join(' '));
     $('pages').hidden = !(page > 0 || result.more);
     $('page-number').textContent = 'Page ' + (page + 1);
     $('prev').disabled = page === 0;

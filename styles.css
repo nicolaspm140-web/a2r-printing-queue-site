@@ -121,8 +121,15 @@ legend { padding: 0; }
 .filters { display: flex; flex-wrap: wrap; gap: 7px; margin: 18px 0 13px; }
 .filter { border: 1px solid #dce5ed; color: var(--muted); background: white; border-radius: 6px; padding: 7px 10px; font-weight: 700; font-size: .83rem; cursor: pointer; }
 .filter.active { border-color: #9dc9c7; color: var(--accent); background: #e9f7f6; }
-.request { border: 1px solid var(--line); border-radius: 9px; margin-top: 9px; }
+.request { position: relative; border: 1px solid var(--line); border-radius: 9px; margin-top: 9px; }
 .request summary { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 11px; padding: 13px; list-style: none; cursor: pointer; }
+.request.can-reject summary { min-height: 60px; padding-right: 170px; }
+.request-reject { position: absolute; top: 10px; right: 12px; min-height: 38px; padding-inline: 11px; }
+@media (max-width: 530px) {
+  .request.can-reject summary { min-height: 0; padding-right: 13px; }
+  .request-reject { position: static; margin: 0 13px 12px; }
+  .request:has(details[open]) .request-reject { margin-top: 12px; }
+}
 .request summary::-webkit-details-marker { display: none; }
 .request h3 { font-size: 1rem; overflow-wrap: anywhere; }
 .request-meta, .request-material { color: var(--muted); font-size: .83rem; margin-top: 3px; overflow-wrap: anywhere; }
@@ -133,7 +140,8 @@ details[open] .chevron { transform: rotate(180deg); }
 .download svg { flex: none; }
 textarea { display: block; resize: vertical; }
 .review-actions, .pagination { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 11px; }
-.review-message { margin-top: 8px; color: var(--muted); font-size: .85rem; }
+.review-message { margin: 0 13px 12px; color: var(--muted); font-size: .85rem; }
+.request:has(details[open]) .review-message { margin-top: 8px; }
 .reject { color: #982f29; }
 .login-form { display: grid; gap: 13px; max-width: 390px; margin-top: 18px; }
 .login-form .button { justify-self: start; }

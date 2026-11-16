@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="./styles.css">
+<link rel="stylesheet" href="./styles.css?v=reject-request">
 </head>
 <body><header class="header"><div class="wrap nav">
   <a class="brand" href="./" aria-label="A2R Printing Queue home"><img src="./logo.png" width="58" height="40" alt="A2R Group"><span class="brand-divider"></span><span>Printing Queue</span></a>
@@ -48,9 +48,11 @@
         <div class="piece-list" aria-label="Design files"></div><p class="download-message" role="status" hidden></p>
         <div class="review-actions project-actions"></div>
         <label>Public comment<textarea name="comment" maxlength="2000" rows="3" placeholder="Share feedback, a decision, or pickup instructions"></textarea></label>
-        <div class="review-actions decision-actions"></div><p class="review-message" role="status" hidden></p>
+        <div class="review-actions decision-actions"></div>
       </form>
     </div>
   </details>
+  <button type="button" class="button secondary reject request-reject" hidden>Reject entire request</button>
+  <p class="review-message" role="status" hidden></p>
 </article></template>
-</main><footer class="footer"><div class="wrap footer-row"><a class="brand footer-brand" href="./"><img src="./logo.png" width="46" height="32" alt="A2R Group"><span>A2R Printing Queue</span></a><span>Autonomous and Assistive Robotics Research Group</span></div></footer><script src="./admin.js" type="module"></script></body></html>
+</main><footer class="footer"><div class="wrap footer-row"><a class="brand footer-brand" href="./"><img src="./logo.png" width="46" height="32" alt="A2R Group"><span>A2R Printing Queue</span></a><span>Autonomous and Assistive Robotics Research Group</span></div></footer><script src="./admin.js?v=reject-request" type="module"></script></body></html>
