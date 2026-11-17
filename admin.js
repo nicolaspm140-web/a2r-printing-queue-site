@@ -1,6 +1,6 @@
 import { call, ApiError } from './api.js';
 import { accessToken, signIn, signOut } from './auth.js';
-import { field, priorityLabels, projectStatuses, setBadge, timeLabel } from './queue.js?v=review-priority';
+import { decisionLabel, field, priorityLabels, projectStatuses, setBadge, timeLabel } from './queue.js?v=printing-workflow';
 
 const $ = (id) => document.getElementById(id);
 const list = $('request-list');
@@ -13,7 +13,7 @@ async function api(path, options) {
   try {
     return await call('admin/' + path, { ...options, accessToken: await accessToken() });
   } catch (error) {
-    if ((error.status === 401 || error.status === 403) && !$('queue').hidden) {
+    if ((error.status === 401 || error.status === 403) && !$('admin-sections').hidden) {
       showSignIn('Your admin session ended. Sign in again.');
       void signOut().catch(() => {});
     }
@@ -56,7 +56,8 @@ function renderRequest(row) {
   const fragment = $('request-template').content.cloneNode(true);
   const requestCard = fragment.querySelector('.request');
   const get = (selector) => requestCard.querySelector(selector);
-  const decisionButton = get('.request-decision');
+  const primaryButton = get('.request-primary');
+  const rejectButton = get('.request-reject');
   const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
   const date = dateFormat.format(new Date(row.submitted_at));
   get('.request-project').textContent = row.project;
@@ -67,7 +68,6 @@ function renderRequest(row) {
   const priorityBadge = get('.request-priority');
   const pieces = get('.piece-list');
   const projectActions = get('.project-actions');
-  const decisionActions = get('.decision-actions');
   const downloadMessage = get('.download-message');
   const review = get('.review-form');
   const message = get('.review-message');
@@ -102,8 +102,11 @@ function renderRequest(row) {
     decisionError.hidden = true;
     void saveReview(decision, undefined, name);
   });
-  decisionButton.addEventListener('click', () =>
-    askReviewer(row.status === 'rejected' ? 'accept' : 'reject', decisionButton.textContent));
+  rejectButton.addEventListener('click', () => askReviewer('reject', rejectButton.textContent));
+  primaryButton.addEventListener('click', () => {
+    if (row.status === 'accepted') void saveReview('start_printing');
+    else askReviewer('accept', primaryButton.textContent);
+  });
   function actionButton(label, action, style = 'secondary', piece) {
     const button = field('button', label, 'button ' + style);
     button.type = 'button';
@@ -116,19 +119,22 @@ function renderRequest(row) {
     priorityBadge.className = 'request-priority badge priority-' + priority;
     priorityBadge.textContent = priorityLabels[priority];
     prioritySelect.value = String(priority);
-    const rejected = row.status === 'rejected';
-    decisionButton.textContent = rejected ? 'Accept rejected request' : 'Reject entire request';
-    decisionButton.className = 'button request-decision ' + (rejected ? 'primary' : 'secondary reject');
-    decisionButton.setAttribute('aria-label', decisionButton.textContent + ' for ' + row.project);
+    const primaryLabel = { pending: 'Accept request', accepted: 'Start printing', rejected: 'Accept rejected request' }[row.status];
+    primaryButton.hidden = !primaryLabel;
+    primaryButton.textContent = primaryLabel || '';
+    primaryButton.setAttribute('aria-label', (primaryLabel || '') + ' for ' + row.project);
+    rejectButton.hidden = row.status === 'rejected';
+    rejectButton.setAttribute('aria-label', 'Reject entire request for ' + row.project);
     const history = row.decision_history ?? [];
+    const latest = history.at(-1);
+    const reviewer = get('.request-reviewer');
+    reviewer.hidden = row.status === 'pending' && !latest;
+    reviewer.textContent = latest ? decisionLabel(latest) : 'Reviewer not recorded';
     get('.history-empty').hidden = history.length > 0;
     get('.decision-history').replaceChildren(...history.slice().reverse().map((entry) => field('li',
-      (entry.action === 'accept' ? 'Accepted by ' : 'Rejected by ') + entry.reviewer + ' · ' + dateFormat.format(new Date(entry.at)))));
+      decisionLabel(entry) + ' · ' + dateFormat.format(new Date(entry.at)))));
     pieces.replaceChildren();
     projectActions.replaceChildren();
-    const commentButton = field('button', 'Save comment', 'button secondary');
-    commentButton.type = 'submit';
-    decisionActions.replaceChildren(commentButton);
     const working = row.status === 'in_process';
     const showState = working || row.status === 'finished' || Object.keys(row.piece_states).length > 0;
     for (const [index, file] of row.files.entries()) {
@@ -160,12 +166,6 @@ function renderRequest(row) {
       if (row.files.some((_, index) => !row.piece_states[index])) projectActions.append(actionButton('Mark all printed', 'ready_all'));
       else projectActions.append(actionButton('Deliver whole project', 'deliver_all', 'primary'));
     }
-    if (row.status === 'pending') {
-      const accept = field('button', 'Accept request', 'button primary');
-      accept.type = 'button';
-      accept.addEventListener('click', () => askReviewer('accept', accept.textContent));
-      decisionActions.append(accept);
-    }
   }
   async function saveReview(action, piece, reviewer) {
     if (review.getAttribute('aria-busy') === 'true') return;
@@ -182,7 +182,11 @@ function renderRequest(row) {
       Object.assign(row, updated);
       if (reviewer && dialog.open) dialog.close();
       renderActions();
-      message.textContent = { comment: 'Comment saved.', reject: 'Entire request rejected.', accept: 'Request accepted.', priority: 'Priority saved.' }[action] || 'Project updated.';
+      message.textContent = {
+        comment: 'Comment saved.', reject: 'Entire request rejected.',
+        accept: row.status === 'accepted' ? 'Request accepted. Use Start printing when it begins.' : 'Request accepted.',
+        start_printing: 'Printing started.', priority: 'Priority saved.',
+      }[action] || 'Project updated.';
       if (filter && filter !== row.status) {
         await loadQueue(message.textContent);
       }
@@ -245,6 +249,14 @@ for (const button of document.querySelectorAll('.filter')) {
       other.setAttribute('aria-pressed', String(other === button));
     }
     filter = button.dataset.filter;
+    $('workflow-note').textContent = {
+      pending: 'Accept or reject requests awaiting review.',
+      accepted: 'Select Start printing when a job begins.',
+      in_process: 'Open a request to mark individual pieces printed or delivered.',
+      finished: 'All pieces have been delivered.',
+      rejected: 'Use Accept rejected request to restore a request.',
+      '': 'Browse requests at every stage.',
+    }[filter];
     page = 0;
     void loadQueue();
   });
@@ -318,6 +330,16 @@ async function loadInventory(message = '') {
 }
 addFilament.addEventListener('submit', (event) => void saveFilament(event));
 const login = $('login-form');
+function showAdminView(showRequests) {
+  $('queue').hidden = !showRequests;
+  $('filament-admin').hidden = showRequests;
+  for (const [id, active] of [['show-requests', showRequests], ['show-filaments', !showRequests]]) {
+    $(id).classList.toggle('active', active);
+    $(id).setAttribute('aria-pressed', String(active));
+  }
+}
+$('show-requests').addEventListener('click', () => showAdminView(true));
+$('show-filaments').addEventListener('click', () => showAdminView(false));
 function loginMessage(message) {
   $('login-message').textContent = message;
   $('login-message').hidden = !message;
@@ -325,8 +347,9 @@ function loginMessage(message) {
 async function openQueue() {
   await api('session');
   $('gate').hidden = true;
-  $('queue').hidden = false;
-  $('filament-admin').hidden = false;
+  $('sign-out').hidden = false;
+  $('admin-sections').hidden = false;
+  showAdminView(true);
   await Promise.all([loadQueue(), loadInventory()]);
 }
 login.addEventListener('submit', async (event) => {
@@ -352,6 +375,8 @@ function showSignIn(message = '') {
   inventory.replaceChildren();
   $('queue').hidden = true;
   $('filament-admin').hidden = true;
+  $('sign-out').hidden = true;
+  $('admin-sections').hidden = true;
   $('gate').hidden = false;
   loginMessage(message);
   login.elements.email.focus();

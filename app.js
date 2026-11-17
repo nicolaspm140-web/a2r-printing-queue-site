@@ -1,5 +1,5 @@
 import { call } from './api.js';
-import { field, priorityLabels, setBadge, timeLabel } from './queue.js?v=review-priority';
+import { decisionLabel, field, priorityLabels, setBadge, timeLabel } from './queue.js?v=printing-workflow';
 
 const $ = (id) => document.getElementById(id);
 const form = $('submit-form');
@@ -201,6 +201,9 @@ function projectCard(row) {
   const active = row.status === 'in_process' || row.status === 'finished';
   const progress = active ? ' · ' + ready + ' ready for pickup · ' + delivered + ' of ' + total + ' delivered' : '';
   article.append(heading, field('p', 'Estimated ' + timeLabel(row.minutes) + progress, 'muted'));
+  if (row.latest_decision) article.append(field('p', decisionLabel(row.latest_decision), 'request-reviewer'));
+  else if (row.status !== 'pending') article.append(field('p', 'Reviewer not recorded', 'muted'));
+  if (row.status === 'accepted') article.append(field('p', 'Waiting to start printing', 'muted'));
   if (row.comment) article.append(field('p', row.comment, 'project-comment'));
   return article;
 }
